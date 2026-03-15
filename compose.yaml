@@ -32,6 +32,11 @@ services:
     environment:
       - DATA_DIR=/data
       - PYTHONUNBUFFERED=1
+      # DuckDB resource limits (tune for your host).
+      # DUCKDB_MEMORY_LIMIT caps working-set per query connection during cold scan.
+      # DUCKDB_THREADS limits parallelism per connection (2 workers × 2 threads = 4 total).
+      - DUCKDB_MEMORY_LIMIT=1GB
+      - DUCKDB_THREADS=2
     restart: unless-stopped
 
 volumes:

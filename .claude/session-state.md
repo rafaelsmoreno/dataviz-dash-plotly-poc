@@ -1,5 +1,5 @@
 # Session State — dataviz-dash-plotly-poc
-## Last updated: 2026-03-15T21:30:00-03:00
+## Last updated: 2026-03-15T19:30:00-03:00
 
 ---
 
@@ -34,44 +34,42 @@ approach — but as a fully self-contained Python + Docker stack, independent of
 - Plotly stackgroup traces: `fillcolor=` is ignored; use `line=dict(color=color, width=0)` to control fill colour.
 - `lru_cache` on module-level DuckDB query functions: caches per worker process. With `--workers 2` in gunicorn, each worker loads data independently (2× memory). Data is frozen until container restart — intentional for static POC datasets.
 - `DATA_DIR` env var controls all data paths in `queries.py` (default `/data`). For local dev outside Docker: `DATA_DIR=./data python app/app.py`.
-- `dcc` is imported but unused in `app/app.py` (minor P2 leftover).
+- `px.scatter_map` (not `px.scatter_mapbox`) is the correct API in Plotly >= 5.18. Our pin is `plotly==5.24.1`.
+- NYC taxi zone shapefiles are in EPSG:2263 (NY State Plane feet) — must reproject to WGS84 (EPSG:4326) via pyproj before using as lat/lon.
+- `dash-ag-grid` requires `dash>=2`; version `31.3.1` is compatible with `dash==2.18.2`. Use `domLayout: "autoHeight"` for variable-height grids — do not set `style={"height": None}`.
+- Dash callback `Output` IDs must match component IDs in the layout. If a component doesn't respond to a filter (e.g. vendor chart not broken down by payment type), remove it from the callback outputs rather than returning unchanged data (avoids no-op round-trips).
+- Page `order=` values in `dash.register_page()` must be unique; duplicates cause non-deterministic sidebar ordering.
+- `app/data/nyc_taxi_zone_centroids.csv` (263 zones, WGS84, 15 KB) is committed to git under `app/data/` — NOT part of the Docker data volume. Referenced in `queries.py` via `_APP_DIR = Path(__file__).parent` so it's path-independent.
 
 ---
 
 ## Accomplished
 
-- [x] Initialized git repo on `main`, created private GitHub repo `rafaelsmoreno/dataviz-dash-plotly-poc`
-- [x] Registered port 8050 in `~/projects/ports.yml`
-- [x] Scaffolded full project structure: `app/`, `data/`, `scripts/`, `tests/`
-- [x] `scripts/init_data.sh` — idempotent downloader for Parquet + 7 CSVs
-- [x] `app/queries.py` — full DuckDB query layer: 9 NYC Taxi queries, 3 World Energy queries, 1 Brazil macro query; all `lru_cache`-decorated
-- [x] `app/pages/nyc_taxi.py` — 7 charts: KPI cards, daily trips+revenue, hourly heatmap, payment donut, vendor grouped bar, distance distribution, fare vs. distance scatter
-- [x] `app/pages/world_energy.py` — 4 charts: stacked area mix share, TWh lines, top-20 renewable countries bar, country mix stacked bar (fixed fill color bug)
-- [x] `app/pages/brazil_economy.py` — 5 charts: KPI cards, GDP dual-axis, inflation+unemployment, USD/BRL area, trade balance
-- [x] `app/pages/home.py` — landing page with 3 dashboard card links
-- [x] `app/app.py` — Dash multi-page entrypoint, fixed sidebar nav, gunicorn `server` object
-- [x] `Dockerfile` — `python:3.12-slim`, gunicorn, HEALTHCHECK (90s start-period), copies `tests/` and `pytest.ini`
-- [x] `compose.yaml` — `data-init` (runs once, `service_completed_successfully`) → `dash` (always, port 8050), named volume `data`
-- [x] `Makefile` — `up / down / build / logs / shell / test / clean`
-- [x] `requirements.txt` — pinned: dash 2.18.2, dbc 1.6.0, plotly 5.24.1, duckdb 1.2.0, pandas 2.2.3, gunicorn 23.0.0, pytest 8.3.5
-- [x] `pytest.ini` + `tests/test_smoke.py` — 4 smoke tests (module import, Flask server type, pages count, all 4 paths registered)
-- [x] `README.md` — mirrors `dataviz-evidence-poc/README.md` structure: Dashboards, Stack, How to Run, Makefile targets, Project Structure, Architecture Notes, Comparison table
-- [x] PR #1 opened, PR review run (3 findings: HEALTHCHECK, tests, fill-color — all fixed), PR merged via squash, branch deleted, post-merge cleanup done
+- [x] PR #1 — Full scaffold: Dash app, 3 dashboards, DuckDB queries, Docker, tests, README
+- [x] PR #2 — All P2/P3 pending work items:
+  - [x] Remove unused `dcc` import in `app/app.py`
+  - [x] GitHub Actions CI workflow (`.github/workflows/ci.yml`) — pytest on every push + PR to main
+  - [x] Local dev setup section in README (venv, `DATA_DIR`, `init_data.sh`)
+  - [x] Interactive Dash callbacks on all 3 dashboards:
+    - NYC Taxi: payment-type checklist → filters payment donut, distance histogram, fare scatter
+    - World Energy: year-range slider → filters stacked area + TWh line charts
+    - Brazil Economy: year-range slider → filters all 4 charts
+  - [x] NYC Zone Map page (`/nyc-zone-map`): `px.scatter_map` on OpenStreetMap, 263-zone pickup bubble map with borough filter + auto-zoom
+  - [x] `dash-ag-grid==31.3.1` — sortable/filterable/paginated zone summary table on zone map page
+  - [x] Zone centroid CSV derived from official TLC shapefiles (pyshp + pyproj), committed to git
 
 ---
 
 ## In Progress / Pending
 
-No active work items. The POC scaffold is complete and merged to `main`.
+No active work items. All P2/P3 items are complete and merged to `main`.
 
 **Potential next-phase work (not yet requested):**
 
-- P2 — Remove unused `dcc` import in `app/app.py:22`
-- P2 — Add a GitHub Actions CI workflow (`pytest` on push/PR)
-- P2 — Local dev setup: `pip install -e .` / `venv` instructions in README
-- P3 — Add Dash callbacks for interactive filtering (currently all charts are static renders)
-- P3 — Add a zone map page for NYC Taxi (the Evidence-POC has a PointMap — equivalent would be a Plotly `scatter_mapbox`)
-- P3 — Evaluate adding `dash-ag-grid` for tabular data views
+- P3 — Add a second ag-grid page for World Energy (195-country latest-year table)
+- P3 — Add more NYC Taxi queries: dropoff zone map, top O/D pairs
+- P3 — Evaluate adding dark mode (dbc `color_mode_switch`)
+- P4 — Performance: consider `dask` or chunked DuckDB reads for the Parquet on lower-memory hosts
 
 ---
 
@@ -79,15 +77,18 @@ No active work items. The POC scaffold is complete and merged to `main`.
 
 | Path | Purpose |
 |---|---|
-| `app/app.py` | Dash entrypoint — sidebar, multi-page router, gunicorn `server` |
-| `app/queries.py` | All DuckDB SQL + `lru_cache`; `DATA_DIR` env var controls paths |
-| `app/pages/nyc_taxi.py` | NYC Taxi dashboard — 7 charts |
-| `app/pages/world_energy.py` | World Energy dashboard — 4 charts (fill-color fixed) |
-| `app/pages/brazil_economy.py` | Brazil Economy dashboard — 5 charts |
-| `app/pages/home.py` | Landing page |
+| `app/app.py` | Dash entrypoint — sidebar (5 links), multi-page router, gunicorn `server` |
+| `app/queries.py` | All DuckDB SQL + `lru_cache`; `DATA_DIR` env var controls paths; `_APP_DIR` for static lookups |
+| `app/data/nyc_taxi_zone_centroids.csv` | 263 zone centroids WGS84 — committed to git, path-independent |
+| `app/pages/nyc_taxi.py` | NYC Taxi dashboard — 7 charts + payment-type checklist callback |
+| `app/pages/nyc_zone_map.py` | Zone Map — scatter_map + ag-grid table + borough checklist callback |
+| `app/pages/world_energy.py` | World Energy — 4 charts + year-range slider callback |
+| `app/pages/brazil_economy.py` | Brazil Economy — 5 charts + year-range slider callback |
+| `app/pages/home.py` | Landing page — 4 dashboard cards |
 | `scripts/init_data.sh` | Data downloader (idempotent) |
-| `tests/test_smoke.py` | 4 smoke tests — no data required |
-| `Dockerfile` | Build + HEALTHCHECK |
+| `tests/test_smoke.py` | 4 smoke tests — import, server type, ≥4 pages, 5 paths |
+| `.github/workflows/ci.yml` | GitHub Actions CI — pytest on push/PR |
+| `Dockerfile` | python:3.12-slim + gunicorn + HEALTHCHECK |
 | `compose.yaml` | Two-service stack |
 | `Makefile` | Developer shortcuts |
 | `README.md` | Full documentation |

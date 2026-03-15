@@ -39,7 +39,7 @@ def layout() -> html.Div:
         [
             html.H1("Dash + Plotly POC", className="mb-1"),
             html.P(
-                "Three independent dashboards powered by DuckDB + Parquet/CSV — same datasets as the Evidence-POC.",
+                "Six dashboards powered by DuckDB + Parquet/CSV — same datasets as the Evidence-POC.",
                 className="lead text-muted mb-5",
             ),
             dbc.Row(
@@ -55,6 +55,12 @@ def layout() -> html.Div:
                         "Interactive scatter map of pickup volume by taxi zone, filterable by borough.",
                         "/nyc-zone-map",
                         "#14B8A6",
+                    ),
+                    _card(
+                        "NYC Flows",
+                        "Dropoff zone scatter map and top-30 origin→destination pairs, filterable by borough.",
+                        "/nyc-flows",
+                        "#8B5CF6",
                     ),
                     _card(
                         "World Energy",

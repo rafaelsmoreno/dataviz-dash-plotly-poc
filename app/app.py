@@ -2,12 +2,18 @@
 app.py — Dash multi-page application entrypoint.
 
 Layout:
-  - Left sidebar navigation (NYC Taxi / World Energy / Brazil Economy)
+  - Left sidebar navigation with dark mode toggle
   - Main content area (dash.page_container)
 
 Run:
   python app.py          (local dev, debug=True)
   gunicorn app:server    (production / Docker)
+
+Dark mode:
+  A Bootstrap theme swap is implemented via a clientside callback that rewrites
+  the href of the Bootstrap CSS <link> element between FLATLY (light) and DARKLY
+  (dark). No extra packages required. Plotly figures keep plotly_white template;
+  the Bootstrap dark theme styles the page chrome, cards, and sidebar.
 """
 
 import sys
@@ -18,13 +24,17 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Dash, html
+from dash import Dash, Input, Output, clientside_callback, dcc, html
+
+# Theme URLs referenced by the dark-mode clientside callback
+_THEME_LIGHT = dbc.themes.FLATLY
+_THEME_DARK = dbc.themes.DARKLY
 
 app = Dash(
     __name__,
     use_pages=True,
     pages_folder="pages",
-    external_stylesheets=[dbc.themes.FLATLY, dbc.icons.BOOTSTRAP],
+    external_stylesheets=[_THEME_LIGHT, dbc.icons.BOOTSTRAP],
     suppress_callback_exceptions=True,
     title="Dash + Plotly POC",
 )
@@ -39,6 +49,7 @@ NAV_LINKS = [
     {"label": "Home", "href": "/", "icon": "bi-house"},
     {"label": "NYC Taxi", "href": "/nyc-taxi", "icon": "bi-taxi-front"},
     {"label": "NYC Zone Map", "href": "/nyc-zone-map", "icon": "bi-map"},
+    {"label": "NYC Flows", "href": "/nyc-flows", "icon": "bi-arrow-left-right"},
     {"label": "World Energy", "href": "/world-energy", "icon": "bi-lightning-charge"},
     {"label": "Brazil Economy", "href": "/brazil-economy", "icon": "bi-graph-up"},
 ]
@@ -64,10 +75,26 @@ def sidebar() -> html.Div:
                     ),
                     html.Span(" POC", className="text-muted"),
                 ],
-                className="px-3 pt-4 pb-3 border-bottom",
+                className="px-3 pt-4 pb-2 border-bottom",
             ),
             dbc.Nav(links, vertical=True, pills=True, className="px-2 pt-2"),
+            # Dark mode toggle at the bottom of the sidebar
+            html.Div(
+                [
+                    html.I(className="bi-sun me-2", style={"fontSize": "0.85rem"}),
+                    dbc.Switch(
+                        id="dark-mode-switch",
+                        value=False,
+                        className="d-inline-block",
+                        style={"transform": "scale(0.85)"},
+                    ),
+                    html.I(className="bi-moon ms-1", style={"fontSize": "0.85rem"}),
+                ],
+                className="px-3 py-3 border-top d-flex align-items-center",
+                style={"position": "absolute", "bottom": 0, "width": "220px"},
+            ),
         ],
+        id="sidebar",
         style={
             "width": "220px",
             "minHeight": "100vh",
@@ -87,6 +114,10 @@ def sidebar() -> html.Div:
 
 app.layout = html.Div(
     [
+        # theme-store persists Bootstrap theme preference (local storage)
+        dcc.Store(id="theme-store", storage_type="local", data="light"),
+        # plotly-theme-store is a dummy output for the Plotly relayout callback
+        dcc.Store(id="plotly-theme-store", data="light"),
         sidebar(),
         html.Div(
             dash.page_container,
@@ -94,6 +125,60 @@ app.layout = html.Div(
         ),
     ],
     style={"display": "flex"},
+)
+
+# ---------------------------------------------------------------------------
+# Dark mode — two clientside callbacks (no Python round-trip)
+# ---------------------------------------------------------------------------
+
+# Callback 1: swap Bootstrap CSS link + sync sidebar styling
+clientside_callback(
+    """
+    function(dark_mode) {
+        var links = document.querySelectorAll('link[rel="stylesheet"]');
+        var themeLight = '"""
+    + _THEME_LIGHT
+    + """';
+        var themeDark  = '"""
+    + _THEME_DARK
+    + """';
+        for (var i = 0; i < links.length; i++) {
+            if (links[i].href.indexOf('bootstrap') !== -1 ||
+                links[i].href === themeLight || links[i].href === themeDark) {
+                links[i].href = dark_mode ? themeDark : themeLight;
+                break;
+            }
+        }
+        var sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+            sidebar.style.backgroundColor = dark_mode ? '#1a1a2e' : '#f8fafc';
+            sidebar.style.borderRight = dark_mode
+                ? '1px solid #2d2d44' : '1px solid #e2e8f0';
+        }
+        return dark_mode ? 'dark' : 'light';
+    }
+    """,
+    Output("theme-store", "data"),
+    Input("dark-mode-switch", "value"),
+)
+
+# Callback 2: update Plotly chart templates to match the Bootstrap theme
+clientside_callback(
+    """
+    function(dark_mode) {
+        var template = dark_mode ? 'plotly_dark' : 'plotly_white';
+        // Use a short delay so Plotly graphs are mounted by the time this fires
+        setTimeout(function() {
+            var graphs = document.querySelectorAll('.js-plotly-plot');
+            graphs.forEach(function(g) {
+                try { Plotly.relayout(g, {'template': template}); } catch(e) {}
+            });
+        }, 50);
+        return dark_mode ? 'dark' : 'light';
+    }
+    """,
+    Output("plotly-theme-store", "data"),
+    Input("dark-mode-switch", "value"),
 )
 
 # ---------------------------------------------------------------------------
