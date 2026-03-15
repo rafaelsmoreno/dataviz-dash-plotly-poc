@@ -8,6 +8,17 @@ same approach as Evidence: no persistent .db file, fully in-memory.
 Path convention: DATA_DIR is set from the DATA_DIR env var (default: /data).
 Inside Docker the init container downloads files to /data; locally the path
 is ./data (relative to repo root, passed via env).
+
+Memory management:
+  DUCKDB_MEMORY_LIMIT env var caps the DuckDB working-set per query connection
+  (default: 1GB). This prevents OOM on low-memory hosts during cold scan of the
+  ~500 MB Parquet file. After lru_cache warms up, _q() is no longer called —
+  the limit only applies to the initial per-worker cold scan.
+
+  DUCKDB_THREADS env var limits parallel threads per connection (default: 2).
+  With gunicorn --workers 2, this caps total CPU usage at 4 threads.
+
+  Tune both via environment variables in compose.yaml or the Docker run command.
 """
 
 from __future__ import annotations
@@ -39,10 +50,22 @@ BR_FX = DATA_DIR / "brazil_economy" / "usd_brl.csv"
 BR_EXP = DATA_DIR / "brazil_economy" / "exports.csv"
 BR_IMP = DATA_DIR / "brazil_economy" / "imports.csv"
 
+# DuckDB resource limits — tunable via environment variables
+_DUCKDB_MEMORY_LIMIT = os.environ.get("DUCKDB_MEMORY_LIMIT", "1GB")
+_DUCKDB_THREADS = int(os.environ.get("DUCKDB_THREADS", "2"))
+
 
 def _q(sql: str) -> pd.DataFrame:
-    """Execute a DuckDB SQL query (in-memory) and return a DataFrame."""
+    """
+    Execute a DuckDB SQL query (in-memory) and return a DataFrame.
+
+    Each call opens a fresh :memory: connection with resource limits applied.
+    In practice, _q() is only called once per query function per worker process
+    (lru_cache handles subsequent calls); the limits guard the initial cold scan.
+    """
     con = duckdb.connect(database=":memory:")
+    con.execute(f"SET memory_limit='{_DUCKDB_MEMORY_LIMIT}'")
+    con.execute(f"SET threads={_DUCKDB_THREADS}")
     return con.execute(sql).df()
 
 
@@ -383,4 +406,93 @@ def nyc_zone_pickup_map() -> pd.DataFrame:
         FROM zones z
         LEFT JOIN pickups p ON z.location_id = p.location_id
         ORDER BY trips DESC
+    """)
+
+
+@lru_cache(maxsize=1)
+def nyc_zone_dropoff_map() -> pd.DataFrame:
+    """
+    Dropoff trip count + avg fare per taxi zone, joined with centroid coordinates.
+
+    Returns same schema as nyc_zone_pickup_map but keyed on DOLocationID.
+    """
+    return _q(f"""
+        WITH dropoffs AS (
+            SELECT
+                DOLocationID                                                AS location_id,
+                COUNT(*)                                                    AS trips,
+                ROUND(AVG(total_amount), 2)                                AS avg_fare,
+                ROUND(AVG(tip_amount / NULLIF(fare_amount, 0)) * 100, 1)  AS avg_tip_pct
+            FROM read_parquet({_p(NYC_PARQUET)})
+            WHERE tpep_pickup_datetime >= '2024-01-01'
+              AND tpep_pickup_datetime <  '2024-02-01'
+              AND tpep_dropoff_datetime > tpep_pickup_datetime
+              AND trip_distance > 0 AND fare_amount > 0 AND passenger_count > 0
+            GROUP BY DOLocationID
+        ),
+        zones AS (
+            SELECT
+                location_id::INT  AS location_id,
+                zone,
+                borough,
+                lat::DOUBLE       AS lat,
+                lon::DOUBLE       AS lon
+            FROM read_csv({_p(NYC_ZONE_CENTROIDS_CSV)}, auto_detect=true)
+        )
+        SELECT
+            z.location_id,
+            z.zone,
+            z.borough,
+            z.lat,
+            z.lon,
+            COALESCE(d.trips, 0)        AS trips,
+            COALESCE(d.avg_fare, 0)     AS avg_fare,
+            COALESCE(d.avg_tip_pct, 0)  AS avg_tip_pct
+        FROM zones z
+        LEFT JOIN dropoffs d ON z.location_id = d.location_id
+        ORDER BY trips DESC
+    """)
+
+
+@lru_cache(maxsize=1)
+def nyc_top_od_pairs() -> pd.DataFrame:
+    """
+    Top 30 origin–destination zone pairs by trip volume.
+
+    Returns columns: pu_zone, do_zone, pu_borough, do_borough, trips, avg_fare, avg_distance.
+    Excludes same-zone (pu == do) trips.
+    """
+    return _q(f"""
+        WITH od AS (
+            SELECT
+                PULocationID  AS pu_id,
+                DOLocationID  AS do_id,
+                COUNT(*)                                AS trips,
+                ROUND(AVG(total_amount), 2)             AS avg_fare,
+                ROUND(AVG(trip_distance), 2)            AS avg_distance
+            FROM read_parquet({_p(NYC_PARQUET)})
+            WHERE tpep_pickup_datetime >= '2024-01-01'
+              AND tpep_pickup_datetime <  '2024-02-01'
+              AND tpep_dropoff_datetime > tpep_pickup_datetime
+              AND trip_distance > 0 AND fare_amount > 0 AND passenger_count > 0
+              AND PULocationID != DOLocationID
+            GROUP BY PULocationID, DOLocationID
+        ),
+        zones AS (
+            SELECT location_id::INT AS location_id, zone, borough
+            FROM read_csv({_p(NYC_ZONE_CENTROIDS_CSV)}, auto_detect=true)
+        )
+        SELECT
+            pu.zone     AS pu_zone,
+            do.zone     AS do_zone,
+            pu.borough  AS pu_borough,
+            do.borough  AS do_borough,
+            od.trips,
+            od.avg_fare,
+            od.avg_distance
+        FROM od
+        JOIN zones pu ON od.pu_id = pu.location_id
+        JOIN zones do ON od.do_id = do.location_id
+        ORDER BY trips DESC
+        LIMIT 30
     """)

@@ -157,8 +157,19 @@ Override this for local development outside Docker:
 DATA_DIR=./data python app/app.py
 ```
 
+**DuckDB resource limits** — two env vars cap DuckDB's working-set during the initial cold scan:
+
+| Variable | Default | Effect |
+|---|---|---|
+| `DUCKDB_MEMORY_LIMIT` | `1GB` | Max working memory per connection; prevents OOM on low-memory hosts |
+| `DUCKDB_THREADS` | `2` | Parallel threads per connection; with `--workers 2`, total = 4 threads |
+
+Both are set in `compose.yaml` and can be overridden at `docker compose up` or in a `.env` file.
+After `lru_cache` warms up (first request per worker), DuckDB is no longer called — the limits
+only affect the cold scan.
+
 **Smoke tests** — `tests/test_smoke.py` verifies the Dash app imports cleanly, the gunicorn
-`server` object is a Flask app, and all 4 page paths are registered — without requiring any
+`server` object is a Flask app, and all 6 page paths are registered — without requiring any
 data files. Run with `make test`.
 
 ---

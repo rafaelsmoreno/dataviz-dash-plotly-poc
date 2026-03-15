@@ -6,13 +6,15 @@ Charts:
   • Line chart    — absolute generation by source (TWh)
   • Bar chart     — top 20 countries by renewable share (latest year)
   • Grouped bar   — energy mix breakdown for top-10 countries by generation
+  • ag-grid table — all countries, latest year, sortable by any metric
 
 Interactive filter: year range slider.
   - Affects: stacked area (share %) and TWh line chart.
-  - Not affected: top-20 bar and country mix (already fixed to latest year).
+  - Not affected: top-20 bar, country mix bar, and ag-grid (fixed to latest year).
 """
 
 import dash
+import dash_ag_grid as dag
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
@@ -24,7 +26,7 @@ from queries import (
     energy_top_renewable_countries,
 )
 
-dash.register_page(__name__, path="/world-energy", name="World Energy", order=3)
+dash.register_page(__name__, path="/world-energy", name="World Energy", order=4)
 
 # ---------------------------------------------------------------------------
 # Colours
@@ -66,6 +68,106 @@ _MIX_COLS = [
 ]
 _MIX_LABELS = ["Coal", "Gas", "Nuclear", "Hydro", "Solar", "Wind", "Other Renew."]
 _MIX_COLORS = [COAL, GAS, NUCLEAR, HYDRO, SOLAR, WIND, OTHER]
+
+# ---------------------------------------------------------------------------
+# ag-grid column definitions — country energy table
+# ---------------------------------------------------------------------------
+
+_ENERGY_GRID_COLS = [
+    {
+        "field": "country",
+        "headerName": "Country",
+        "flex": 2,
+        "filter": "agTextColumnFilter",
+        "pinned": "left",
+    },
+    {"field": "year", "headerName": "Year", "flex": 1, "type": "numericColumn"},
+    {
+        "field": "electricity_twh",
+        "headerName": "Generation (TWh)",
+        "flex": 1,
+        "type": "numericColumn",
+        "valueFormatter": {"function": "d3.format(',.0f')(params.value)"},
+        "sort": "desc",
+    },
+    {
+        "field": "total_renewables_pct",
+        "headerName": "Renewables %",
+        "flex": 1,
+        "type": "numericColumn",
+        "valueFormatter": {"function": "d3.format('.1f')(params.value) + '%'"},
+    },
+    {
+        "field": "total_fossil_pct",
+        "headerName": "Fossil %",
+        "flex": 1,
+        "type": "numericColumn",
+        "valueFormatter": {"function": "d3.format('.1f')(params.value) + '%'"},
+    },
+    {
+        "field": "coal_pct",
+        "headerName": "Coal %",
+        "flex": 1,
+        "type": "numericColumn",
+        "valueFormatter": {"function": "d3.format('.1f')(params.value) + '%'"},
+    },
+    {
+        "field": "wind_pct",
+        "headerName": "Wind %",
+        "flex": 1,
+        "type": "numericColumn",
+        "valueFormatter": {"function": "d3.format('.1f')(params.value) + '%'"},
+    },
+    {
+        "field": "solar_pct",
+        "headerName": "Solar %",
+        "flex": 1,
+        "type": "numericColumn",
+        "valueFormatter": {"function": "d3.format('.1f')(params.value) + '%'"},
+    },
+    {
+        "field": "hydro_pct",
+        "headerName": "Hydro %",
+        "flex": 1,
+        "type": "numericColumn",
+        "valueFormatter": {"function": "d3.format('.1f')(params.value) + '%'"},
+    },
+    {
+        "field": "nuclear_pct",
+        "headerName": "Nuclear %",
+        "flex": 1,
+        "type": "numericColumn",
+        "valueFormatter": {"function": "d3.format('.1f')(params.value) + '%'"},
+    },
+]
+
+
+def _energy_grid() -> dag.AgGrid:
+    mix = energy_country_mix()
+    cols = [
+        "country",
+        "year",
+        "electricity_twh",
+        "total_renewables_pct",
+        "total_fossil_pct",
+        "coal_pct",
+        "wind_pct",
+        "solar_pct",
+        "hydro_pct",
+        "nuclear_pct",
+    ]
+    return dag.AgGrid(
+        rowData=mix[cols].to_dict("records"),
+        columnDefs=_ENERGY_GRID_COLS,
+        defaultColDef={"sortable": True, "resizable": True, "minWidth": 90},
+        dashGridOptions={
+            "pagination": True,
+            "paginationPageSize": 20,
+            "paginationPageSizeSelector": [10, 20, 50, 100],
+            "domLayout": "autoHeight",
+        },
+        className="ag-theme-alpine",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -271,6 +373,24 @@ def layout() -> html.Div:
                         className="mb-4",
                     ),
                 ]
+            ),
+            dbc.Row(
+                dbc.Col(
+                    dbc.Card(
+                        dbc.CardBody(
+                            [
+                                html.H6(
+                                    "All Countries — Latest Year Energy Mix",
+                                    className="mb-3 fw-semibold",
+                                ),
+                                _energy_grid(),
+                            ]
+                        ),
+                        className="shadow-sm",
+                    ),
+                    md=12,
+                    className="mb-4",
+                )
             ),
         ],
         className="px-4 py-3",
