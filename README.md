@@ -10,40 +10,47 @@ Everything is code, everything is in git.
 
 ## Dashboards
 
-| Dataset | Charts | Source |
-|---|---|---|
-| **NYC Yellow Taxi** | KPIs, daily trend, heatmap, payment, vendor, distribution, scatter | TLC Jan 2024 Parquet (2.7M rows) |
-| **World Energy Mix** | Global mix share, TWh by source, top renewable countries, country mix | Our World in Data CSV |
-| **Brazil Economy** | GDP, inflation, FX, trade balance (2000–2025) | World Bank Open Data API |
+| Page | Charts | Source | Interactive filter |
+|---|---|---|---|
+| **NYC Yellow Taxi** | KPIs, daily trend, heatmap, payment, vendor, distribution, scatter | TLC Jan 2024 Parquet (2.7M rows) | Payment type checklist |
+| **NYC Zone Map** | Pickup volume scatter map + ag-grid table | TLC Parquet + zone centroids | Borough checklist |
+| **World Energy Mix** | Global mix share, TWh by source, top renewable countries, country mix | Our World in Data CSV | Year range slider |
+| **Brazil Economy** | GDP, inflation, FX, trade balance (2000–2025) | World Bank Open Data API | Year range slider |
 
 ### NYC Yellow Taxi
 - KPI overview: total trips, revenue, avg fare, avg distance, avg duration, avg tip %
 - Daily trip volume + revenue trend for January 2024
 - Hourly heatmap (trips by hour × day of week)
-- Payment type donut chart
+- Payment type donut chart (filtered by payment type checklist)
 - Vendor comparison (grouped bar)
-- Trip distance distribution (histogram)
-- Fare vs. distance scatter plot (5 000-row sample, coloured by payment type)
+- Trip distance distribution (histogram, filtered by payment type)
+- Fare vs. distance scatter plot (5 000-row sample, filtered by payment type)
+
+### NYC Zone Map
+- OpenStreetMap scatter map — one bubble per taxi zone, sized by pickup volume, coloured by avg fare
+- Borough multi-select filter — auto-zooms map and filters the table
+- ag-grid table — 263-zone pickup summary with sort, filter, pagination, and column resize
 
 ### World Energy Mix
-- Global electricity mix share over time — stacked area (1990–present)
-- Absolute generation by source in TWh — line chart
+- Global electricity mix share over time — stacked area (1990–present, year range slider)
+- Absolute generation by source in TWh — line chart (year range slider)
 - Top 20 countries by renewable share (latest year)
 - Energy mix breakdown for top-10 countries by total generation
 
 ### Brazil Economy
 - GDP (total and per capita), inflation, unemployment, USD/BRL rate
 - Exports, imports, trade balance — all from World Bank API
-- Full time-series from 2000 to 2025
+- Full time-series from 2000 to 2025 (year range slider across all four charts)
 
 ---
 
 ## Stack
 
 ```
-Dash + Plotly  →  Python multi-page app served by gunicorn
-DuckDB         →  In-memory query engine (no persistent .db file)
-Docker Compose →  Two-service stack: data-init + dash app server
+Dash + Plotly      →  Python multi-page app served by gunicorn
+dash-ag-grid       →  Client-side sortable/filterable grid (NYC Zone Map)
+DuckDB             →  In-memory query engine (no persistent .db file)
+Docker Compose     →  Two-service stack: data-init + dash app server
 ```
 
 All raw data is downloaded at container start by `scripts/init_data.sh`. Nothing is committed to git.
@@ -63,6 +70,28 @@ The `dash` service waits for it to finish, then starts gunicorn.
 
 **First run** takes ~3–5 min (downloads ~500 MB of raw data — mainly the Parquet file).
 **Subsequent runs** start in ~10 sec (data already present in the named Docker volume).
+
+### Local development (without Docker)
+
+```bash
+# 1. Create and activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Download data (first time only — same script used by Docker)
+bash scripts/init_data.sh
+
+# 4. Run the dev server
+DATA_DIR=./data python app/app.py
+```
+
+Open **http://localhost:8050**. The server reloads automatically on file changes (`debug=True`).
+
+> **Note:** `DATA_DIR=./data` tells `queries.py` to look for data files in `./data/` instead
+> of the Docker volume path `/data`. The `init_data.sh` script writes files there automatically.
 
 ### Makefile targets
 
@@ -84,9 +113,12 @@ make clean    # full reset — removes containers AND the data volume (re-downlo
 app/
   app.py                        # Dash entrypoint — sidebar nav, multi-page router
   queries.py                    # DuckDB query layer — all SQL, lru_cache, path helpers
+  data/
+    nyc_taxi_zone_centroids.csv # 263 NYC taxi zone centroids (WGS84) — committed to git
   pages/
-    home.py                     # Landing page — links to all 3 dashboards
+    home.py                     # Landing page — links to all dashboards
     nyc_taxi.py                 # 7 charts: KPIs, daily, heatmap, payment, vendor, dist, scatter
+    nyc_zone_map.py             # Scatter map + ag-grid table — pickup volume by zone
     world_energy.py             # 4 charts: stacked area, TWh lines, top-20 bar, country mix
     brazil_economy.py           # 5 charts: KPIs, GDP, inflation/unemp, FX, trade balance
 
@@ -140,8 +172,8 @@ the rendering layer:
 | Dimension | Evidence.dev | Dash + Plotly |
 |---|---|---|
 | Language | SQL + Markdown | Python |
-| Interactivity | Client-side DuckDB-WASM | Server-side Python callbacks |
+| Interactivity | Client-side DuckDB-WASM | Server-side Python callbacks + client-side ag-grid |
 | Output | Static site (pre-aggregated) | Dynamic WSGI app |
 | Deployment | Static hosting (CDN/S3) | Container (gunicorn) |
-| Customisation | Limited to Evidence components | Full Plotly + HTML/CSS |
+| Customisation | Limited to Evidence components | Full Plotly + HTML/CSS + AG Grid |
 | Learning curve | Low (SQL-first) | Medium (Python + Dash API) |

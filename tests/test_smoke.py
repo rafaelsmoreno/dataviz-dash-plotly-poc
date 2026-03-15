@@ -39,22 +39,28 @@ def test_server_is_flask_app():
 
 
 def test_dash_instance_has_pages():
-    """Dash app must have use_pages=True and at least 3 registered pages."""
+    """Dash app must have use_pages=True and at least 4 registered pages."""
     import dash
 
     mod = importlib.import_module("app")
     assert hasattr(mod, "app"), "app.app (Dash instance) not found"
     pages = dash.page_registry
-    assert len(pages) >= 3, (
-        f"Expected at least 3 registered pages, got {len(pages)}: {list(pages.keys())}"
+    assert len(pages) >= 4, (
+        f"Expected at least 4 registered pages, got {len(pages)}: {list(pages.keys())}"
     )
 
 
 def test_page_paths_registered():
-    """The three dashboard paths must be present in the page registry."""
+    """All five page paths must be present in the page registry."""
     import dash
 
     importlib.import_module("app")  # ensure pages are registered
     paths = {p["path"] for p in dash.page_registry.values()}
-    for expected in ("/", "/nyc-taxi", "/world-energy", "/brazil-economy"):
+    for expected in (
+        "/",
+        "/nyc-taxi",
+        "/nyc-zone-map",
+        "/world-energy",
+        "/brazil-economy",
+    ):
         assert expected in paths, f"Page path '{expected}' not registered"
