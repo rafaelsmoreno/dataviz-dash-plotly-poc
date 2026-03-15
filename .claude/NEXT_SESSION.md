@@ -2,10 +2,9 @@
 
 ## Resuming from
 
-The initial scaffold is **complete and merged to `main`**. The Dash + Plotly POC is a
-fully containerized Python app with 3 dashboards (NYC Taxi, World Energy, Brazil Economy)
-backed by DuckDB + Parquet/CSV — mirroring `dataviz-evidence-poc`. No active branch; all
-work is on `main`.
+The project is **complete**. All 9 PRs are merged to `main` at `f635dcc`.
+6 dashboards, dark mode default, NYC sidebar group, ag-grid dark mode, CI, clean README.
+No open branches, no failing tests, no pending work.
 
 ## Read first
 
@@ -15,34 +14,33 @@ work is on `main`.
 
 1. Confirm clean state:
    ```bash
-   git status && git log --oneline
+   git status && git log --oneline -5
    ```
-   Expected: clean working tree, 2 commits on `main`.
+   Expected: clean working tree, `f635dcc` at HEAD.
 
-2. If running the stack for the first time:
+2. If the stack is not running:
    ```bash
    make up && make logs
-   # open http://localhost:8050
    ```
+   Open [http://localhost:8050](http://localhost:8050). First load is slow (~20s) — DuckDB cold scan.
 
-3. To run smoke tests (no data required):
+3. Run smoke tests to confirm nothing drifted:
    ```bash
    make test
    ```
+   Expected: 4 passed.
 
 ## Pending work (prioritised)
 
-- **P2** — Remove unused `dcc` import in `app/app.py:22` (`from dash import Dash, dcc, html` → remove `dcc`)
-- **P2** — Add GitHub Actions CI workflow: run `pytest` on push/PR (no data needed, smoke tests only)
-- **P2** — Add local dev setup instructions to README (`venv`, `pip install -r requirements.txt`, `DATA_DIR=./data python app/app.py`)
-- **P3** — Add Dash callbacks for interactive filtering (currently all charts are static; no `Input`/`Output` callbacks exist)
-- **P3** — NYC Taxi zone map page (`scatter_mapbox` with taxi zone centroids — mirrors the Evidence-POC PointMap page)
-- **P3** — Evaluate `dash-ag-grid` for tabular data views
+**Nothing pending.** The POC is complete and production-quality.
+
+If new work is requested, start by reading `session-state.md` for full technical context,
+then create a feature branch (`git checkout -b feat/<name>`) before any change.
 
 ## Key technical facts
 
-1. **Port 8050** — registered in `~/projects/ports.yml`. Do not rebind or change without updating that file.
-2. **Pre-commit hook blocks direct commits to `main`** — always create a feature branch first (`git checkout -b feat/<name>`).
-3. **DATA_DIR env var** — `app/queries.py` resolves all data paths from `DATA_DIR` (default `/data`). For local dev outside Docker: `DATA_DIR=./data python app/app.py`.
-4. **Plotly stackgroup fill color** — `fillcolor=` is ignored on `stackgroup` traces; use `line=dict(color=color, width=0)` instead. Already fixed in `world_energy.py`.
-5. **lru_cache behaviour** — all query functions are `@lru_cache(maxsize=1)`; data is frozen per worker process until the container restarts. With `--workers 2` in gunicorn, each worker caches independently (2× memory). This is intentional for static POC datasets.
+1. **Dark mode is the default.** Bootstrap loads `DARKLY`, switch starts `value=True`, ag-grid starts `ag-theme-alpine-dark`. Three separate clientside callbacks handle Bootstrap / Plotly / ag-grid independently — they cannot share an `Output`.
+2. **`python:3.12-slim` has no curl or wget.** `data-init` installs curl via `apt-get` at container start. This is verified and intentional — do not attempt to replace with wget (not present).
+3. **Port 8050** — registered in `~/projects/ports.yml`. Do not rebind.
+4. **Pre-commit hook blocks direct commits to `main`** — always create a feature branch first.
+5. **No user-facing Evidence-POC references** — README and home page are clean; keep them clean.
