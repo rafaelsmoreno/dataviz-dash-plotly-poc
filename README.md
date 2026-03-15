@@ -53,7 +53,7 @@ DuckDB             →  In-memory query engine (no persistent .db file)
 Docker Compose     →  Two-service stack: data-init + dash app server
 ```
 
-All raw data is downloaded at container start by `scripts/init_data.sh`. Nothing is committed to git.
+All raw data is downloaded at container start by `scripts/init_data.sh`. Large raw data files (Parquet, OWID CSV, World Bank CSVs) are not committed to git. The NYC taxi zone centroid lookup (`app/data/nyc_taxi_zone_centroids.csv`, 15 KB) is committed alongside the app code.
 
 ---
 

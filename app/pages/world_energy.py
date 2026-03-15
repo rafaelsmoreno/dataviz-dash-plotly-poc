@@ -24,7 +24,7 @@ from queries import (
     energy_top_renewable_countries,
 )
 
-dash.register_page(__name__, path="/world-energy", name="World Energy", order=2)
+dash.register_page(__name__, path="/world-energy", name="World Energy", order=3)
 
 # ---------------------------------------------------------------------------
 # Colours

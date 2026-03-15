@@ -399,7 +399,6 @@ def layout() -> html.Div:
 
 @callback(
     Output("nyc-graph-payment", "figure"),
-    Output("nyc-graph-vendor", "figure"),
     Output("nyc-graph-dist", "figure"),
     Output("nyc-graph-scatter", "figure"),
     Input("nyc-payment-filter", "value"),
@@ -408,7 +407,6 @@ def update_nyc_charts(selected_types: list[str]) -> tuple:
     selected = selected_types or ALL_PAYMENT_TYPES
     return (
         _fig_payment(selected),
-        _fig_vendor(selected),
         _fig_dist(selected),
         _fig_scatter(selected),
     )

@@ -18,7 +18,7 @@ from dash import Input, Output, callback, dcc, html
 
 from queries import brazil_macro
 
-dash.register_page(__name__, path="/brazil-economy", name="Brazil Economy", order=3)
+dash.register_page(__name__, path="/brazil-economy", name="Brazil Economy", order=4)
 
 # ---------------------------------------------------------------------------
 # Colours

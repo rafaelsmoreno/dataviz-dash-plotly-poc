@@ -166,7 +166,6 @@ def _zone_grid(selected_boroughs: list[str]) -> dag.AgGrid:
             "paginationPageSizeSelector": [10, 20, 50],
             "domLayout": "autoHeight",
         },
-        style={"height": None},
         className="ag-theme-alpine",
     )
 
