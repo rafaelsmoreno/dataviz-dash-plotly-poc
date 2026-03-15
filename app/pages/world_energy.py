@@ -166,7 +166,7 @@ def _energy_grid() -> dag.AgGrid:
             "paginationPageSizeSelector": [10, 20, 50, 100],
             "domLayout": "autoHeight",
         },
-        className="ag-theme-alpine",
+        className="ag-theme-alpine-dark",
     )
 
 
