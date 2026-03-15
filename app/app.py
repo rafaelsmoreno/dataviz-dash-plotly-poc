@@ -193,6 +193,8 @@ app.layout = html.Div(
         dcc.Store(id="theme-store", storage_type="local", data="dark"),
         # plotly-theme-store is a dummy output for the Plotly relayout callback
         dcc.Store(id="plotly-theme-store", data="dark"),
+        # ag-grid-theme-store is a dummy output for the ag-grid class swap callback
+        dcc.Store(id="ag-grid-theme-store", data="dark"),
         sidebar(),
         html.Div(
             dash.page_container,
@@ -285,6 +287,29 @@ clientside_callback(
     }
     """,
     Output("plotly-theme-store", "data"),
+    Input("dark-mode-switch", "value"),
+)
+
+# Callback 3: swap ag-grid theme class between ag-theme-alpine and ag-theme-alpine-dark
+clientside_callback(
+    """
+    function(dark_mode) {
+        setTimeout(function() {
+            var grids = document.querySelectorAll('.ag-theme-alpine, .ag-theme-alpine-dark');
+            grids.forEach(function(el) {
+                if (dark_mode) {
+                    el.classList.remove('ag-theme-alpine');
+                    el.classList.add('ag-theme-alpine-dark');
+                } else {
+                    el.classList.remove('ag-theme-alpine-dark');
+                    el.classList.add('ag-theme-alpine');
+                }
+            });
+        }, 50);
+        return dark_mode ? 'dark' : 'light';
+    }
+    """,
+    Output("ag-grid-theme-store", "data"),
     Input("dark-mode-switch", "value"),
 )
 
