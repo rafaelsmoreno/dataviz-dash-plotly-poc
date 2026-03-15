@@ -54,7 +54,7 @@ Everything is code, everything is in git.
 
 ```
 Dash + Plotly      →  Python multi-page app served by gunicorn
-dash-ag-grid       →  Client-side sortable/filterable grid (NYC Zone Map)
+dash-ag-grid       →  Client-side sortable/filterable grid (NYC Zone Map, World Energy)
 DuckDB             →  In-memory query engine (no persistent .db file)
 Docker Compose     →  Two-service stack: data-init + dash app server
 ```
