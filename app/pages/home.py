@@ -39,7 +39,7 @@ def layout() -> html.Div:
         [
             html.H1("Dash + Plotly POC", className="mb-1"),
             html.P(
-                "Six dashboards powered by DuckDB + Parquet/CSV — same datasets as the Evidence-POC.",
+                "Six dashboards powered by DuckDB + Parquet/CSV.",
                 className="lead text-muted mb-5",
             ),
             dbc.Row(
