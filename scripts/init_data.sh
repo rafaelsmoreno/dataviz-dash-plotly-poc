@@ -36,6 +36,7 @@ BASE_URL="https://api.worldbank.org/v2/country/BR/indicator"
 
 fetch_wb() {
     INDICATOR="$1"; DEST="$2"; LABEL="$3"
+    mkdir -p "$(dirname "$DEST")"
     if [ -f "$DEST" ]; then
         echo "[init] $LABEL already exists — skipping."
         return
