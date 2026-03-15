@@ -1,4 +1,4 @@
-.PHONY: up down build logs shell clean
+.PHONY: up down build logs shell clean test
 
 ## Start the full stack (data-init + dash) in detached mode
 up:
@@ -23,3 +23,9 @@ shell:
 ## Remove containers + the data volume (full reset — re-downloads all data)
 clean:
 	docker compose down -v
+
+## Run smoke tests inside Docker (no data files required)
+test:
+	docker compose run --rm --no-deps \
+	  -e DATA_DIR=/data \
+	  dash pytest /app/tests/ -v

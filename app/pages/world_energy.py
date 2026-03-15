@@ -59,9 +59,11 @@ def layout() -> html.Div:
                 y=trends[col],
                 name=label,
                 mode="lines",
-                line=dict(width=0),
+                # line.color drives both the stroke and the fill for stackgroup
+                # traces; fillcolor alone is ignored by Plotly when stackgroup
+                # is set. width=0 hides the stroke line.
+                line=dict(color=color, width=0),
                 fill="tonexty" if col != "fossil_pct" else "tozeroy",
-                fillcolor=color,
                 stackgroup="one",
             )
         )

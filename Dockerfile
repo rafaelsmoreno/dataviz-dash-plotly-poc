@@ -22,14 +22,21 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application source
+# Copy application source and tests
 COPY app/ ./app/
+COPY tests/ ./tests/
+COPY pytest.ini .
 
 # Data directory is mounted at runtime (compose volume); create the mount point
 RUN mkdir -p /data/nyc_taxi/raw /data/world_energy /data/brazil_economy
 
 # Expose Dash default port
 EXPOSE 8050
+
+# Health check — gunicorn start-period is long because DuckDB scans the
+# Parquet file on first request (can take 10-20 s on cold start).
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+  CMD curl -f http://localhost:8050/ || exit 1
 
 # Run with gunicorn in production mode.
 # WORKDIR is /app; app.py lives in /app/app/; server object is app:server.
