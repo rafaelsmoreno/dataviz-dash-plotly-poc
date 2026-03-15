@@ -25,6 +25,10 @@ import pandas as pd
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 
+# Static lookup file shipped with the app code — not part of the data volume.
+_APP_DIR = Path(__file__).parent
+NYC_ZONE_CENTROIDS_CSV = _APP_DIR / "data" / "nyc_taxi_zone_centroids.csv"
+
 NYC_PARQUET = DATA_DIR / "nyc_taxi" / "raw" / "yellow_tripdata_2024-01.parquet"
 ENERGY_CSV = DATA_DIR / "world_energy" / "owid-energy-data.csv"
 BR_GDP = DATA_DIR / "brazil_economy" / "gdp_usd.csv"
@@ -332,4 +336,51 @@ def brazil_macro() -> pd.DataFrame:
         LEFT JOIN read_csv({_p(BR_EXP)},   auto_detect=true)  ex ON g.year = ex.year
         LEFT JOIN read_csv({_p(BR_IMP)},   auto_detect=true)  im ON g.year = im.year
         ORDER BY year
+    """)
+
+
+@lru_cache(maxsize=1)
+def nyc_zone_pickup_map() -> pd.DataFrame:
+    """
+    Pickup trip count + avg fare per taxi zone, joined with centroid coordinates.
+
+    Returns columns: location_id, zone, borough, lat, lon, trips, avg_fare, avg_tip_pct.
+    The centroid CSV is bundled with the app (app/data/nyc_taxi_zone_centroids.csv);
+    the Parquet is in DATA_DIR.
+    """
+    return _q(f"""
+        WITH pickups AS (
+            SELECT
+                PULocationID                                                AS location_id,
+                COUNT(*)                                                    AS trips,
+                ROUND(AVG(total_amount), 2)                                AS avg_fare,
+                ROUND(AVG(tip_amount / NULLIF(fare_amount, 0)) * 100, 1)  AS avg_tip_pct
+            FROM read_parquet({_p(NYC_PARQUET)})
+            WHERE tpep_pickup_datetime >= '2024-01-01'
+              AND tpep_pickup_datetime <  '2024-02-01'
+              AND tpep_dropoff_datetime > tpep_pickup_datetime
+              AND trip_distance > 0 AND fare_amount > 0 AND passenger_count > 0
+            GROUP BY PULocationID
+        ),
+        zones AS (
+            SELECT
+                location_id::INT  AS location_id,
+                zone,
+                borough,
+                lat::DOUBLE       AS lat,
+                lon::DOUBLE       AS lon
+            FROM read_csv({_p(NYC_ZONE_CENTROIDS_CSV)}, auto_detect=true)
+        )
+        SELECT
+            z.location_id,
+            z.zone,
+            z.borough,
+            z.lat,
+            z.lon,
+            COALESCE(p.trips, 0)        AS trips,
+            COALESCE(p.avg_fare, 0)     AS avg_fare,
+            COALESCE(p.avg_tip_pct, 0)  AS avg_tip_pct
+        FROM zones z
+        LEFT JOIN pickups p ON z.location_id = p.location_id
+        ORDER BY trips DESC
     """)

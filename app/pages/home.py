@@ -1,5 +1,5 @@
 """
-Home / landing page — links to the three dashboard sections.
+Home / landing page — links to all dashboard sections.
 """
 
 import dash
@@ -49,6 +49,12 @@ def layout() -> html.Div:
                         "January 2024 — 3 M+ trips. KPIs, daily trends, heatmap, payment breakdown, scatter.",
                         "/nyc-taxi",
                         "#3B82F6",
+                    ),
+                    _card(
+                        "NYC Zone Map",
+                        "Interactive scatter map of pickup volume by taxi zone, filterable by borough.",
+                        "/nyc-zone-map",
+                        "#14B8A6",
                     ),
                     _card(
                         "World Energy",

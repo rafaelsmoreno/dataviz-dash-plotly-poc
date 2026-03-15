@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Dash, dcc, html
+from dash import Dash, html
 
 app = Dash(
     __name__,
@@ -38,6 +38,7 @@ server = app.server  # expose for gunicorn
 NAV_LINKS = [
     {"label": "Home", "href": "/", "icon": "bi-house"},
     {"label": "NYC Taxi", "href": "/nyc-taxi", "icon": "bi-taxi-front"},
+    {"label": "NYC Zone Map", "href": "/nyc-zone-map", "icon": "bi-map"},
     {"label": "World Energy", "href": "/world-energy", "icon": "bi-lightning-charge"},
     {"label": "Brazil Economy", "href": "/brazil-economy", "icon": "bi-graph-up"},
 ]

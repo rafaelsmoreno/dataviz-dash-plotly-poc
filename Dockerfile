@@ -22,7 +22,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application source and tests
+# Copy application source (including app/data/ static lookups) and tests
 COPY app/ ./app/
 COPY tests/ ./tests/
 COPY pytest.ini .
