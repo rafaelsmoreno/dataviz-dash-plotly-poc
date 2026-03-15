@@ -3,7 +3,7 @@
 A proof-of-concept data visualization project built with [Dash](https://dash.plotly.com) and [Plotly](https://plotly.com/python/),
 evaluating Dash as a candidate for a Python-native, version-controlled analytics platform.
 
-Three fully interactive dashboards, built entirely in Python. No drag-and-drop. No GUI.
+Six fully interactive dashboards, built entirely in Python. No drag-and-drop. No GUI.
 Everything is code, everything is in git.
 
 ---
@@ -14,7 +14,8 @@ Everything is code, everything is in git.
 |---|---|---|---|
 | **NYC Yellow Taxi** | KPIs, daily trend, heatmap, payment, vendor, distribution, scatter | TLC Jan 2024 Parquet (2.7M rows) | Payment type checklist |
 | **NYC Zone Map** | Pickup volume scatter map + ag-grid table | TLC Parquet + zone centroids | Borough checklist |
-| **World Energy Mix** | Global mix share, TWh by source, top renewable countries, country mix | Our World in Data CSV | Year range slider |
+| **NYC Flows** | Dropoff zone scatter map + top-30 O/D pairs chart | TLC Parquet + zone centroids | Borough checklist |
+| **World Energy Mix** | Global mix share, TWh by source, top renewable countries, country mix + ag-grid | Our World in Data CSV | Year range slider |
 | **Brazil Economy** | GDP, inflation, FX, trade balance (2000–2025) | World Bank Open Data API | Year range slider |
 
 ### NYC Yellow Taxi
@@ -30,6 +31,11 @@ Everything is code, everything is in git.
 - OpenStreetMap scatter map — one bubble per taxi zone, sized by pickup volume, coloured by avg fare
 - Borough multi-select filter — auto-zooms map and filters the table
 - ag-grid table — 263-zone pickup summary with sort, filter, pagination, and column resize
+
+### NYC Flows
+- Dropoff zone scatter map — same zone centroid layer, coloured by avg fare (Plasma palette)
+- Top-30 origin → destination pairs — horizontal bar chart, coloured by avg fare
+- Borough checklist filter — auto-zooms the dropoff map
 
 ### World Energy Mix
 - Global electricity mix share over time — stacked area (1990–present, year range slider)
@@ -63,7 +69,7 @@ All raw data is downloaded at container start by `scripts/init_data.sh`. Large r
 docker compose up --build
 ```
 
-Open **http://localhost:8050**.
+Open [http://localhost:8050](http://localhost:8050).
 
 The `data-init` service downloads all raw data files on first run (skips if already present).
 The `dash` service waits for it to finish, then starts gunicorn.
@@ -88,7 +94,7 @@ bash scripts/init_data.sh
 DATA_DIR=./data python app/app.py
 ```
 
-Open **http://localhost:8050**. The server reloads automatically on file changes (`debug=True`).
+Open [http://localhost:8050](http://localhost:8050). The server reloads automatically on file changes (`debug=True`).
 
 > **Note:** `DATA_DIR=./data` tells `queries.py` to look for data files in `./data/` instead
 > of the Docker volume path `/data`. The `init_data.sh` script writes files there automatically.
@@ -119,7 +125,8 @@ app/
     home.py                     # Landing page — links to all dashboards
     nyc_taxi.py                 # 7 charts: KPIs, daily, heatmap, payment, vendor, dist, scatter
     nyc_zone_map.py             # Scatter map + ag-grid table — pickup volume by zone
-    world_energy.py             # 4 charts: stacked area, TWh lines, top-20 bar, country mix
+    nyc_flows.py                # Dropoff scatter map + top-30 O/D pairs
+    world_energy.py             # 4 charts + ag-grid: stacked area, TWh lines, top-20, country mix
     brazil_economy.py           # 5 charts: KPIs, GDP, inflation/unemp, FX, trade balance
 
 scripts/
@@ -172,19 +179,3 @@ only affect the cold scan.
 `server` object is a Flask app, and all 6 page paths are registered — without requiring any
 data files. Run with `make test`.
 
----
-
-## Comparison with Evidence-POC
-
-This repo and [`dataviz-evidence-poc`](https://github.com/rafaelsmoreno/dataviz-evidence-poc) use
-identical datasets and the same DuckDB + Parquet/CSV in-memory query approach. The difference is
-the rendering layer:
-
-| Dimension | Evidence.dev | Dash + Plotly |
-|---|---|---|
-| Language | SQL + Markdown | Python |
-| Interactivity | Client-side DuckDB-WASM | Server-side Python callbacks + client-side ag-grid |
-| Output | Static site (pre-aggregated) | Dynamic WSGI app |
-| Deployment | Static hosting (CDN/S3) | Container (gunicorn) |
-| Customisation | Limited to Evidence components | Full Plotly + HTML/CSS + AG Grid |
-| Learning curve | Low (SQL-first) | Medium (Python + Dash API) |
