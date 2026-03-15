@@ -30,24 +30,6 @@ _GRAPH_CONFIG = {"displayModeBar": True, "scrollZoom": True}
 _DEFAULT_CENTER = {"lat": 40.7128, "lon": -74.006}
 _DEFAULT_ZOOM = 10
 
-# Colour palette consistent with other NYC pages
-BLUE = "#3B82F6"
-GREEN = "#22C55E"
-AMBER = "#F59E0B"
-RED = "#EF4444"
-PURPLE = "#8B5CF6"
-TEAL = "#14B8A6"
-SLATE = "#64748B"
-
-_BOROUGH_COLORS = {
-    "Manhattan": BLUE,
-    "Brooklyn": GREEN,
-    "Queens": AMBER,
-    "Bronx": RED,
-    "Staten Island": PURPLE,
-    "EWR": SLATE,
-}
-
 
 # ---------------------------------------------------------------------------
 # Figure builders

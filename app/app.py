@@ -114,8 +114,10 @@ def sidebar() -> html.Div:
 
 app.layout = html.Div(
     [
-        # dcc.Store persists the theme preference across page navigation
+        # theme-store persists Bootstrap theme preference (local storage)
         dcc.Store(id="theme-store", storage_type="local", data="light"),
+        # plotly-theme-store is a dummy output for the Plotly relayout callback
+        dcc.Store(id="plotly-theme-store", data="light"),
         sidebar(),
         html.Div(
             dash.page_container,
@@ -126,13 +128,13 @@ app.layout = html.Div(
 )
 
 # ---------------------------------------------------------------------------
-# Dark mode — clientside callback (no Python round-trip)
+# Dark mode — two clientside callbacks (no Python round-trip)
 # ---------------------------------------------------------------------------
 
+# Callback 1: swap Bootstrap CSS link + sync sidebar styling
 clientside_callback(
     """
     function(dark_mode) {
-        // Find the Bootstrap theme <link> element (first external stylesheet)
         var links = document.querySelectorAll('link[rel="stylesheet"]');
         var themeLight = '"""
     + _THEME_LIGHT
@@ -147,7 +149,6 @@ clientside_callback(
                 break;
             }
         }
-        // Sync sidebar background
         var sidebar = document.getElementById('sidebar');
         if (sidebar) {
             sidebar.style.backgroundColor = dark_mode ? '#1a1a2e' : '#f8fafc';
@@ -158,6 +159,25 @@ clientside_callback(
     }
     """,
     Output("theme-store", "data"),
+    Input("dark-mode-switch", "value"),
+)
+
+# Callback 2: update Plotly chart templates to match the Bootstrap theme
+clientside_callback(
+    """
+    function(dark_mode) {
+        var template = dark_mode ? 'plotly_dark' : 'plotly_white';
+        // Use a short delay so Plotly graphs are mounted by the time this fires
+        setTimeout(function() {
+            var graphs = document.querySelectorAll('.js-plotly-plot');
+            graphs.forEach(function(g) {
+                try { Plotly.relayout(g, {'template': template}); } catch(e) {}
+            });
+        }, 50);
+        return dark_mode ? 'dark' : 'light';
+    }
+    """,
+    Output("plotly-theme-store", "data"),
     Input("dark-mode-switch", "value"),
 )
 

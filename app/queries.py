@@ -52,7 +52,7 @@ BR_IMP = DATA_DIR / "brazil_economy" / "imports.csv"
 
 # DuckDB resource limits — tunable via environment variables
 _DUCKDB_MEMORY_LIMIT = os.environ.get("DUCKDB_MEMORY_LIMIT", "1GB")
-_DUCKDB_THREADS = int(os.environ.get("DUCKDB_THREADS", "2"))
+_DUCKDB_THREADS = int(os.environ.get("DUCKDB_THREADS") or "2")
 
 
 def _q(sql: str) -> pd.DataFrame:
