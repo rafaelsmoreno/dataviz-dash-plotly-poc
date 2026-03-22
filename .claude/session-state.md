@@ -1,78 +1,87 @@
 # Session State — dataviz-dash-plotly-poc
-## Last updated: 2026-03-15T20:30:00-03:00
+## Last updated: 2026-03-15T23:15:00-03:00
 
 ---
 
 ## Goal
 
-Bootstrap a Dash + Plotly POC that mirrors `dataviz-evidence-poc` — same three datasets
-(NYC Yellow Taxi, World Energy, Brazil Economy), same DuckDB + Parquet/CSV in-memory query
-approach — but as a fully self-contained Python + Docker stack, independent of Evidence.dev/Node.
+Build a Dash + Plotly POC data visualization app — 6 fully interactive dashboards backed by
+DuckDB + Parquet/CSV, served via Docker Compose, with dark mode, sidebar navigation, and CI.
+The project is **complete and production-quality** as of this session.
+
+---
+
+## Instructions
+
+- SSH not configured — use HTTPS for all git operations.
+- Pre-commit hook blocks direct commits to `main`; always use a feature branch. Exception: session-state and chore-only files may use `--no-verify`.
+- `gh pr merge --squash --delete-branch` may leave local main diverged — use `git fetch --prune && git reset --hard origin/main` after every merge.
+- No Evidence-POC references in any user-facing file (README, home page). Internal session state may reference it.
+- URLs the user is meant to open must be clickable Markdown links `[label](url)`, never backtick-wrapped.
+- Dark mode is the **default**. Light mode is the toggle-to state.
+- ag-grid components use `ag-theme-alpine-dark` as the initial class (dark default).
 
 ---
 
 ## Discoveries
 
-- NYC Taxi: `yellow_tripdata_2024-01.parquet` (~500 MB) from the TLC CDN. All queries filter to `2024-01-01..2024-02-01`.
-- World Energy: `owid-energy-data.csv` from OWID GitHub raw.
-- Brazil Economy: 7 CSVs fetched from the World Bank API.
-- Pre-commit hook blocks direct commits to `main` — always need a feature branch. Exception: chore-only commits (e.g. session-state.md) can use `--no-verify`.
-- `gh pr merge --squash --delete-branch` may leave local main diverged if GitHub fast-forward fails — use `git fetch --prune && git reset --hard origin/main` for post-merge cleanup.
-- Plotly stackgroup traces: `fillcolor=` is ignored; use `line=dict(color=color, width=0)`.
-- `lru_cache` caches per worker process. With `--workers 2`, 2× memory usage.
-- `DATA_DIR` env var controls all data paths (default `/data`).
-- `px.scatter_map` (not `px.scatter_mapbox`) is correct in Plotly >= 5.18. Pin is 5.24.1.
-- NYC taxi zone shapefiles are EPSG:2263 — reproject to WGS84 via pyproj before lat/lon use.
-- `dash-ag-grid==31.3.1` requires `dash>=2`; compatible with 2.18.2. Use `domLayout: "autoHeight"` — do not set `style={"height": None}`.
-- Dash callback `Output` IDs must match mounted component IDs. Remove unresponsive charts from callback outputs rather than returning unchanged data.
-- Page `order=` in `dash.register_page()` must be unique.
-- Two clientside callbacks cannot share the same `Output`. For dark mode: one callback for Bootstrap CSS swap (Output → theme-store), one for Plotly relayout (Output → plotly-theme-store).
-- `int(os.environ.get("DUCKDB_THREADS", "2"))` crashes on `DUCKDB_THREADS=` (empty string). Use `int(... or "2")` pattern.
-- DuckDB `SET memory_limit` and `SET threads` pragmas in `_q()` cap resource usage during cold scan. After `lru_cache` warms up, they are never called again.
-- `app/data/nyc_taxi_zone_centroids.csv` (263 zones, WGS84, 15 KB) is committed to git — NOT part of the Docker data volume. Referenced via `_APP_DIR = Path(__file__).parent`.
+- `python:3.12-slim` ships **neither curl nor wget**. The `data-init` service installs curl at runtime via `apt-get`. This is intentional and correct — no alternative without changing the base image.
+- `px.scatter_map` (not `px.scatter_mapbox`) is correct in Plotly >= 5.18. Pinned at 5.24.1.
+- NYC taxi zone shapefiles are EPSG:2263 (NY State Plane feet) — must reproject via pyproj to WGS84 before use as lat/lon.
+- `dash-ag-grid==31.3.1` requires `dash>=2`. Use `domLayout: "autoHeight"` — never `style={"height": None}`.
+- Two clientside callbacks cannot share the same `Output`. Dark mode uses three separate callbacks: (1) Bootstrap CSS swap → `theme-store`, (2) Plotly relayout → `plotly-theme-store`, (3) ag-grid class swap → `ag-grid-theme-store`.
+- ag-grid dark mode: swap `ag-theme-alpine` ↔ `ag-theme-alpine-dark` via `classList.remove/add` in a clientside callback. Initial class must match the default theme to avoid a flash on load.
+- `int(os.environ.get("DUCKDB_THREADS") or "2")` — use `or "2"` not default arg to guard against empty string env var.
+- Plotly stackgroup traces: `fillcolor=` is ignored; use `line=dict(color=color, width=0)` for fill colour.
+- `lru_cache` caches per worker process. With `--workers 2`, each worker loads data independently (~2× memory). Data frozen until container restart — intentional for static POC datasets.
+- `app/data/nyc_taxi_zone_centroids.csv` (263 zones, WGS84, 15 KB) is committed to git under `app/` — NOT part of the Docker data volume. Referenced via `_APP_DIR = Path(__file__).parent`.
+- `DATA_DIR` env var controls all data paths (default `/data`). Local dev: `DATA_DIR=./data python app/app.py`.
+- Page `order=` in `dash.register_page()` must be unique or sidebar ordering is non-deterministic.
+- Dash callback `Output` IDs must match mounted component IDs. Never wire a component to a callback if its data doesn't change on the filter event.
+- No-speculation rule applies to **audit output** as much as to factual claims — every finding in a gap analysis must be grounded in a file read or running check, never memory.
 
 ---
 
-## Accomplished
+## Accomplished (all PRs merged to main)
 
-- [x] PR #1 — Full scaffold: Dash app, 3 dashboards (NYC Taxi, World Energy, Brazil Economy), DuckDB queries, Docker, tests, README
-- [x] PR #2 — P2/P3 improvements:
-  - Remove unused `dcc` import; GitHub Actions CI; local dev docs in README
-  - Callbacks on all 3 dashboards (payment filter, year sliders)
-  - NYC Zone Map page with scatter_map + ag-grid + borough filter
-- [x] PR #3 — Next phase:
-  - World Energy ag-grid table (all ~195 countries, latest year, sortable)
-  - NYC Flows page (`/nyc-flows`): dropoff zone map + top-30 O/D pairs chart
-  - Dark mode toggle: `dbc.Switch` in sidebar → two clientside_callbacks:
-    (1) Bootstrap CSS swap (FLATLY ↔ DARKLY), (2) Plotly relayout (plotly_white ↔ plotly_dark)
-  - DuckDB resource caps: `DUCKDB_MEMORY_LIMIT` (1GB default) + `DUCKDB_THREADS` (2 default) as SET pragmas in `_q()`
+- **PR #1** — Full scaffold: Dash app, 3 dashboards (NYC Taxi, World Energy, Brazil Economy), DuckDB queries, Docker Compose, smoke tests, README.
+- **PR #2** — P2/P3 backlog: remove stale import, GitHub Actions CI, local dev README section, callbacks on all 3 original dashboards (payment filter + year sliders), NYC Zone Map page (scatter_map + ag-grid + borough filter).
+- **PR #3** — Next phase: World Energy ag-grid country table, NYC Flows page (dropoff map + top-30 O/D pairs), dark mode toggle (Bootstrap + Plotly), DuckDB memory/thread caps.
+- **PR #4** — Fix data-init: install curl in `python:3.12-slim` entrypoint, add `mkdir -p` before Brazil economy CSV writes.
+- **PR #5** — Dark mode default + NYC collapsible sidebar group: `dbc.Switch value=True`, initial stylesheet DARKLY, NYC pages grouped under collapsible "NYC" parent with chevron.
+- **PR #6** — Remove internal Evidence-POC reference from home page subtitle.
+- **PR #7** — README full cleanup: remove Comparison section, fix "Three"→"Six", add NYC Flows to table and breakdown, add `nyc_flows.py` to project structure, fix localhost URLs to clickable links.
+- **PR #8** — ag-grid dark mode: third clientside callback swaps `ag-theme-alpine` ↔ `ag-theme-alpine-dark`; initial class set to `ag-theme-alpine-dark`.
+- **PR #9** — README fix: note ag-grid used in both NYC Zone Map and World Energy.
 
 ---
 
 ## Current state
 
-`main` is at commit `86383d6`. Clean working tree. No active branch.
+`main` is at commit `f635dcc` (PR #9). Clean working tree. Stack healthy at [http://localhost:8050](http://localhost:8050).
 
-Pages (6 total):
-- `/` — Home (order=0)
-- `/nyc-taxi` — NYC Yellow Taxi (order=1): 7 charts + payment-type checklist callback
-- `/nyc-zone-map` — NYC Zone Map (order=2): scatter_map + ag-grid + borough filter
-- `/nyc-flows` — NYC Flows (order=3): dropoff map + top-30 O/D pairs + borough filter
-- `/world-energy` — World Energy (order=4): 4 charts + year slider + ag-grid table
-- `/brazil-economy` — Brazil Economy (order=5): 5 charts + year slider
+### Pages (6 total, all working)
+
+| Order | Path | Description |
+|---|---|---|
+| 0 | `/` | Home — 5 dashboard cards |
+| 1 | `/nyc-taxi` | NYC Yellow Taxi — 7 charts + payment-type checklist callback |
+| 2 | `/nyc-zone-map` | NYC Zone Map — scatter_map + ag-grid + borough filter |
+| 3 | `/nyc-flows` | NYC Flows — dropoff map + top-30 O/D pairs + borough filter |
+| 4 | `/world-energy` | World Energy — 4 charts + year slider + ag-grid country table |
+| 5 | `/brazil-economy` | Brazil Economy — 5 charts + year slider |
+
+### Known constraints (not bugs, not fixable without changing base image)
+
+- `data-init` installs curl at runtime via `apt-get` (~10 sec overhead on first container start). `python:3.12-slim` ships neither curl nor wget — this is the only working approach.
 
 ---
 
 ## In Progress / Pending
 
-No active work items. All requested work is complete and merged to `main`.
+**Nothing pending. Project is complete.**
 
-**Potential next-phase work (not yet requested):**
-
-- Plotly dark mode: ag-grid doesn't switch to dark theme on toggle (ag-theme-alpine stays light). Could add `ag-theme-alpine-dark` class swap via the existing Plotly clientside callback.
-- Add more NYC queries: top pickup ↔ dropoff zone flow lines (sankey or chord diagram).
-- Evaluate `dash-mantine-components` for richer UI primitives.
-- Performance: if gunicorn multi-worker memory becomes an issue, evaluate a shared Redis cache (flask-caching) to share lru_cache results across workers.
+No open branches, no failing tests, no open PRs.
 
 ---
 
@@ -80,16 +89,20 @@ No active work items. All requested work is complete and merged to `main`.
 
 | Path | Purpose |
 |---|---|
-| `app/app.py` | Dash entrypoint — sidebar (6 links), dark mode toggle, 2 clientside callbacks |
-| `app/queries.py` | All DuckDB SQL + lru_cache; DATA_DIR, DUCKDB_MEMORY_LIMIT, DUCKDB_THREADS env vars |
-| `app/data/nyc_taxi_zone_centroids.csv` | 263 zone centroids WGS84 — committed to git |
-| `app/pages/nyc_taxi.py` | NYC Taxi — 7 charts + payment-type checklist callback |
-| `app/pages/nyc_zone_map.py` | Pickup zone scatter_map + ag-grid + borough filter |
-| `app/pages/nyc_flows.py` | Dropoff zone scatter_map + top-30 O/D pairs + borough filter |
-| `app/pages/world_energy.py` | 4 charts + year slider + ag-grid country table |
-| `app/pages/brazil_economy.py` | 5 charts + year slider callback |
+| `app/app.py` | Dash entrypoint — sidebar with NYC collapse group, 3 dark mode clientside callbacks, dark default |
+| `app/queries.py` | DuckDB query layer — all SQL, `lru_cache`, `DATA_DIR`, `DUCKDB_MEMORY_LIMIT`, `DUCKDB_THREADS` |
+| `app/data/nyc_taxi_zone_centroids.csv` | 263 zone centroids WGS84 — committed to git, path-independent |
 | `app/pages/home.py` | Landing page — 5 dashboard cards |
+| `app/pages/nyc_taxi.py` | NYC Taxi — 7 charts + payment-type checklist callback |
+| `app/pages/nyc_zone_map.py` | Pickup scatter_map + ag-grid-dark + borough filter |
+| `app/pages/nyc_flows.py` | Dropoff scatter_map + top-30 O/D pairs + borough filter |
+| `app/pages/world_energy.py` | 4 charts + year slider + ag-grid-dark country table |
+| `app/pages/brazil_economy.py` | 5 charts + year slider callback |
 | `tests/test_smoke.py` | 4 smoke tests — import, server type, ≥6 pages, 6 paths |
-| `.github/workflows/ci.yml` | GitHub Actions CI — pytest on push/PR |
-| `compose.yaml` | Two-service stack; DUCKDB_MEMORY_LIMIT + DUCKDB_THREADS env vars |
+| `.github/workflows/ci.yml` | GitHub Actions CI — pytest on every push/PR |
+| `compose.yaml` | Two-service stack — `data-init` (curl install + download) → `dash` (gunicorn, port 8050) |
+| `scripts/init_data.sh` | Downloads Parquet + OWID CSV + 7 World Bank CSVs (idempotent) |
+| `Makefile` | `up`, `down`, `logs`, `build`, `shell`, `test`, `clean` |
 | `~/projects/ports.yml` | Port 8050 registered here |
+| `~/.claude/rules/universal-engineering.md` | Global rules — updated this session with no-speculation audit rule and clickable URL rule |
+| `~/projects/CLAUDE.md` | Project-wide rules — same two rules added |
