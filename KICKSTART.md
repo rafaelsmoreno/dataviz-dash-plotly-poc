@@ -1,31 +1,26 @@
 # Kickstart Prompt — dataviz-dash-plotly-poc
 
-Last updated: 2026-03-22
+Last updated: 2026-11-13
+Base commit: f138bd6067168aacdaa1d280f1fd268432358429
 Maintained by `scripts/update_kickstart.py` — do not edit manually.
 
 ---
 
-## Paste this at the start of the next session:
+## Session bootstrap — /kickstart reads and executes this automatically:
 
 ```
 Repo: dataviz-dash-plotly-poc — continuing from previous session.
 
-## Last completed (2026-03-22)
+## Last completed (2026-11-13)
 POC is COMPLETE — all 9 PRs merged to main at f635dcc. 6 dashboards, dark mode default, NYC sidebar group, ag-grid dark mode, CI, clean README.
-
 ## Repo: dataviz-dash-plotly-poc
-## Date: 2026-03-22
+## Date: 2026-03-22 REFRESHED 2026-11-13 (handoff bookkeeping only; no session worked this repo): the handoff had gone stale against main. Commits that landed since it was last written, taken from the commit log rather than from any session record, so no narrative beyond the subjects is available: f138bd6 chore(ci): bump actions to node24 — checkout v6.0.2, setup-python v6.2.0 (#12);
 
 ## Current branch
 main
 
 ## Open PRs
   (none)
-
-## Last 3 commits
-  7a80c60 chore(claude): create .claude/CLAUDE.md (M4 consolidation) (#10)
-  f635dcc fix: README — note ag-grid is used in both NYC Zone Map and World Energy (#9)
-  e447a8c fix: ag-grid dark mode — swap ag-theme-alpine ↔ ag-theme-alpine-dark on toggle (#8)
 
 ## Start here: POC is complete — no pending work. If new work requested, create feature branch first.
 
