@@ -13,8 +13,8 @@ Repo: dataviz-dash-plotly-poc — continuing from previous session.
 
 ## Last completed (2026-11-13)
 POC is COMPLETE — all 9 PRs merged to main at f635dcc. 6 dashboards, dark mode default, NYC sidebar group, ag-grid dark mode, CI, clean README.
-## Repo: dataviz-dash-plotly-poc
-## Date: 2026-03-22 REFRESHED 2026-11-13 (handoff bookkeeping only; no session worked this repo): the handoff had gone stale against main. Commits that landed since it was last written, taken from the commit log rather than from any session record, so no narrative beyond the subjects is available: f138bd6 chore(ci): bump actions to node24 — checkout v6.0.2, setup-python v6.2.0 (#12);
+
+REFRESHED 2026-11-13 (handoff bookkeeping only; no session worked this repo): the handoff had gone stale against main. Commits that landed since it was last written, taken from the commit log rather than from any session record, so no narrative beyond the subjects is available: f138bd6 chore(ci): bump actions to node24 — checkout v6.0.2, setup-python v6.2.0 (#12);
 
 ## Current branch
 main
